@@ -3,31 +3,32 @@ import type {
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
-} from 'n8n-workflow';
-import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
+} from "n8n-workflow";
+import { NodeOperationError } from "n8n-workflow";
+import { Innertube } from "youtubei.js/web";
 
-export class ExampleNode implements INodeType {
+export class YoutubeTranscriptNode implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'Example Node',
-		name: 'exampleNode',
-		group: ['transform'],
+		displayName: "Youtube Transcript",
+		name: "youtubeTranscript",
+		group: ["transform"],
 		version: 1,
-		description: 'Basic Example Node',
+		description: "Get the transcript of a Youtube video",
 		defaults: {
-			name: 'Example Node',
+			name: "Youtube Transcript",
 		},
-		inputs: [NodeConnectionType.Main],
-		outputs: [NodeConnectionType.Main],
+		inputs: ["main"],
+		outputs: ["main"],
 		properties: [
 			// Node properties which the user gets displayed and
 			// can change on the node.
 			{
-				displayName: 'My String',
-				name: 'myString',
-				type: 'string',
-				default: '',
-				placeholder: 'Placeholder value',
-				description: 'The description text',
+				displayName: "Youtube Video URL",
+				name: "youtubeVideoUrl",
+				type: "string",
+				default: "",
+				placeholder: "Placeholder value",
+				description: "The description text",
 			},
 		],
 	};
@@ -40,22 +41,32 @@ export class ExampleNode implements INodeType {
 		const items = this.getInputData();
 
 		let item: INodeExecutionData;
-		let myString: string;
 
 		// Iterates over all input items and add the key "myString" with the
 		// value the parameter "myString" resolves to.
 		// (This could be a different value for each item in case it contains an expression)
 		for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
 			try {
-				myString = this.getNodeParameter('myString', itemIndex, '') as string;
+				const youtubeVideoUrl = this.getNodeParameter("youtubeVideoUrl", itemIndex, "") as string;
 				item = items[itemIndex];
 
-				item.json.myString = myString;
+				const yt = await Innertube.create({
+					lang: 'en',
+					retrieve_player: false
+				});
+				const video = await yt.getInfo(youtubeVideoUrl);
+				const transcript = await video.getTranscript();
+
+				item.json.transcript = transcript;
 			} catch (error) {
 				// This node should never fail but we want to showcase how
 				// to handle errors.
 				if (this.continueOnFail()) {
-					items.push({ json: this.getInputData(itemIndex)[0].json, error, pairedItem: itemIndex });
+					items.push({
+						json: this.getInputData(itemIndex)[0].json,
+						error,
+						pairedItem: itemIndex,
+					});
 				} else {
 					// Adding `itemIndex` allows other workflows to handle this error
 					if (error.context) {
